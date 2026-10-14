@@ -343,6 +343,7 @@ window.deleteRow = async function(id){
   } catch(e) { alert('Error borrando: ' + e.message); }
 };
 
+// ✅ MODIFICADO: ahora usa POST para evitar el error "Failed to fetch"
 window.uploadPhoto = async function(base64, name){
   const compressed = await new Promise(res => {
     const img = new Image();
@@ -357,7 +358,11 @@ window.uploadPhoto = async function(base64, name){
     };
     img.src = base64;
   });
-  const r = await fetch(window.API_URL + '?action=uploadPhoto&base64=' + encodeURIComponent(compressed) + '&name=' + encodeURIComponent(name));
+  const r = await fetch(window.API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'uploadPhoto', base64: compressed, name: name })
+  });
   const j = await r.json();
   if (!j.ok) throw new Error(j.error);
   return j.url;
@@ -392,7 +397,6 @@ function renderFilters(){
     '<option value="__new">+ Agregar categoría nueva…</option>';
 }
 
-// Escuchar cuando eligen "+ nueva"
 document.addEventListener('change', async (e) => {
   if (e.target && e.target.id === 'n_area' && e.target.value === '__new') {
     const name = prompt('Nombre de la nueva área:');
@@ -509,10 +513,7 @@ window.openLb = function(url, cap){
 };
 $('lb').addEventListener('click', () => $('lb').classList.remove('open'));
 
-// ============================================================
-// MODAL REPORTAR - Soporta hasta 4 fotos
-// ============================================================
-let nFotosArr = []; // array de base64
+let nFotosArr = [];
 
 function renderFotosGrid(){
   const g = $('nFotos');
