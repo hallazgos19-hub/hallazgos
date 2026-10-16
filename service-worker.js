@@ -1,22 +1,30 @@
-const CACHE = 'hallazgos-v1';
-const FILES = [
-  './Hallazgos_Planta.html',
-  './manifest.json'
-];
+// Hallazgos de Planta · service worker v3
+// Primero la red (así siempre ves la versión más nueva) y, sin internet, la copia guardada.
+// Nunca guarda llamadas a Google (datos, fotos, fuentes): esas van siempre directo a la red.
+const CACHE = 'hallazgos-v3';
+const FILES = ['./Hallazgos_Planta.html', './manifest.json'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).catch(() => {}));
   self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
-  e.waitUntil(self.clients.claim());
+  e.waitUntil((async () => {
+    for (const k of await caches.keys()) if (k !== CACHE) await caches.delete(k);
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener('fetch', e => {
-  // No cachear llamadas a la API
-  if (e.request.url.includes('script.google.com')) return;
+  const r = e.request;
+  if (r.method !== 'GET') return;
+  const u = new URL(r.url);
+  if (u.origin !== self.location.origin) return;
   e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request))
+    fetch(r).then(res => {
+      if (res && res.ok) { const copia = res.clone(); caches.open(CACHE).then(c => c.put(r, copia)); }
+      return res;
+    }).catch(() => caches.match(r).then(m => m || caches.match('./Hallazgos_Planta.html')))
   );
 });
